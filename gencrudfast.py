@@ -63,7 +63,7 @@ def gen_crud(name, *fields):
     
     @router.get("/{name.lower()}" , tags=["{name.lower()}"], response_model=list[{name}Schema])
     async def get_{name.lower()}():
-        return {name}Controller.get_all_{name}(db=SessionLocal())
+        return {name}Controller.get_all_{name.lower()}(db=SessionLocal())
     
     @router.post("/{name.lower()}", tags=["{name.lower()}"])
     async def create_{name.lower()}({name.lower()}: {name}Schema):
