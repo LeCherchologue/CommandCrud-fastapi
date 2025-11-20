@@ -29,6 +29,8 @@ def gen_crud(name, *fields):
         __tablename__ = "{name.lower()}"
         id = Column(Integer, primary_key=True, index=True, autoincrement=True)
         {fields_str}
+        created_at = Column(DateTime, default=func.now(), nullable=False)
+        updated_at = Column(DateTime, default=func.now(), nullable=False)
     """)
 
     # --- Schemas ---
