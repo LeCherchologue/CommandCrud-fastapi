@@ -1,4 +1,3 @@
-#generateur de crud FASTAPI
 import os
 import sys
 from textwrap import dedent
@@ -15,16 +14,15 @@ def ensure_package(path):
 
 def gen_crud(name, *fields):
     name = name.capitalize()
-    fields_str ="\n".join([f"{f} = Column(String(255))" for f in fields])
+    fields_str = "\n".join([f"{f} = Column(String(255))" for f in fields])
     fields_schema = "\n".join([f"{f} : str" for f in fields])
-
 
     # --- Models ---
     model = dedent(f"""
     from sqlalchemy import Column, Integer, String, func, DateTime, Boolean, ForeignKey,Date
     from sqlalchemy.orm import relationship
     from ..bdd.connexion import Base
-    
+
     class {name}(Base):
         __tablename__ = "{name.lower()}"
         id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -38,9 +36,9 @@ def gen_crud(name, *fields):
     from pydantic import BaseModel, EmailStr
     from typing import Optional
     from datetime import datetime
-    
+
     class {name}Schema(BaseModel):
-    
+
         {fields_schema}
     """)
 
@@ -51,7 +49,7 @@ def gen_crud(name, *fields):
     from api.bdd.connexion import SessionLocal
     from api.schema.{name}Schema import {name}Schema
     from api.controller import {name}Controller
-    
+
     router = APIRouter()
 
     def get_db():
@@ -60,18 +58,18 @@ def gen_crud(name, *fields):
             yield db
         finally:
             db.close()
-    
+
     #--------------route {name}--------------------#
-    
+
     @router.get("/{name.lower()}" , tags=["{name.lower()}"], response_model=list[{name}Schema])
     async def get_{name.lower()}():
         return {name}Controller.get_all_{name.lower()}(db=SessionLocal())
-    
+
     @router.post("/{name.lower()}", tags=["{name.lower()}"])
     async def create_{name.lower()}({name.lower()}: {name}Schema):
         db=SessionLocal()
         return {name}Controller.create_{name.lower()}(db=db, {name.lower()}={name.lower()})
-    
+
     @router.put("/{name.lower()}/id", tags=["{name.lower()}"])
     async def update_{name.lower()}(id: int, {name.lower()}: {name}Schema):
         db=SessionLocal()
@@ -81,7 +79,7 @@ def gen_crud(name, *fields):
     async def delete_{name.lower()}(id: int):
         db=SessionLocal()
         return {name}Controller.delete_{name.lower()}(db=db, id=id)
-        
+
     """)
 
     # --- Controllers ---
@@ -138,16 +136,11 @@ def gen_crud(name, *fields):
         db.commit()
     """)
 
-
-
-
-
     # --- Écriture des fichiers ---
     os.makedirs("api/model", exist_ok=True)
     os.makedirs("api/schema", exist_ok=True)
     os.makedirs("api/router", exist_ok=True)
     os.makedirs("api/controller", exist_ok=True)
-
 
     ensure_package("api/model")
     with open(f"api/model/{name}Model.py", "w") as f:
@@ -167,6 +160,7 @@ def gen_crud(name, *fields):
 
     print(f"✅ CRUD généré pour  {name} ({', '.join(fields)}) avec succes !!!")
 
+
 def gen_main(firstTable: str):
     firstTable = firstTable.capitalize()
 
@@ -175,27 +169,29 @@ def gen_main(firstTable: str):
     from fastapi.middleware.cors import CORSMiddleware
     from api.router import {firstTable}Router
     from api.bdd.connexion import Base, engine
-    
+
     app = FastAPI()
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=["POST", "GET", "PUT", "DELETE"],
+        allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
+
     )
-    
+
     Base.metadata.create_all(bind=engine)
-    
+
     app.include_router({firstTable}Router.router, prefix="/api")
-    
+
     @app.get("/")
     async def main():
         return {{
             "message": "API demarre",
         }}
-    
+
     """)
 
     # --- Écriture du fichier ---
@@ -204,45 +200,44 @@ def gen_main(firstTable: str):
 
     print("le fichier main.py, success ")
 
+
 def gen_bdd(name_bdd, name_projet):
-
-
     bdd = dedent(f"""
-    
+
     from sqlalchemy import create_engine
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
     from sqlalchemy.orm import sessionmaker
-    
+
     class Parametres:
     PROJECT_NAME: str = {name_projet}
     PROJECT_VERSION: str = "0.0.0"
     DATABASE_URL: str = "mysql+pymysql://root@localhost:3306/{name_bdd}"
 
     parametres = Parametres()
-    
+
     engine = create_engine(Parametres.DATABASE_URL)
-    
+
     try:
         with engine.connect() as connection:
             print("Connexion à la base de donnée établie avec succès")
     except SQLAlchemyError as e:
         print("Erreur de connexion à la base de donnée: ", str(e))
-    
-    
+
+
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
-    
+
+
     Base = declarative_base()
-    
+
     def get_db():
-    
+
         db = SessionLocal()
         try:
             yield db
         finally:
             db.close()
-            
+
     """)
 
     os.makedirs("api/bdd", exist_ok=True)
