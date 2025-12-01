@@ -70,12 +70,12 @@ def gen_crud(name, *fields):
         db=SessionLocal()
         return {name}Controller.create_{name.lower()}(db=db, {name.lower()}={name.lower()})
 
-    @router.put("/{name.lower()}/id", tags=["{name.lower()}"])
+    @router.put("/{name.lower()}/{{id}}", tags=["{name.lower()}"])
     async def update_{name.lower()}(id: int, {name.lower()}: {name}Schema):
         db=SessionLocal()
         return {name}Controller.update_{name.lower()}(db=db, {name.lower()}={name.lower()}, {name.lower()}_id=id)
 
-    @router.delete("/{name.lower()}/id", tags=["{name.lower()}"])
+    @router.delete("/{name.lower()}/{{id}}", tags=["{name.lower()}"])
     async def delete_{name.lower()}(id: int):
         db=SessionLocal()
         return {name}Controller.delete_{name.lower()}(db=db, id=id)
