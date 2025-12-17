@@ -45,6 +45,8 @@ def gen_crud(name, *fields):
     # --- Routes ---
     router = dedent(f""""
     from sqlalchemy.orm import Session
+    from typing import Generator, Annotated
+    from sqlalchemy.orm import Session  
     from fastapi import APIRouter, Depends,Form, UploadFile,File
     from api.bdd.connexion import SessionLocal
     from api.schema.{name}Schema import {name}Schema
@@ -52,7 +54,7 @@ def gen_crud(name, *fields):
 
     router = APIRouter()
 
-    def get_db():
+    def get_db() -> Generator[Session, None, None]:
         db = SessionLocal()
         try:
             yield db
@@ -62,22 +64,19 @@ def gen_crud(name, *fields):
     #--------------route {name}--------------------#
 
     @router.get("/{name.lower()}" , tags=["{name.lower()}"], response_model=list[{name}Schema])
-    async def get_{name.lower()}():
-        return {name}Controller.get_all_{name.lower()}(db=SessionLocal())
+    async def get_{name.lower()}(db: Session = Depends(get_db)):
+        return {name}Controller.get_all_{name.lower()}(db=db)
 
     @router.post("/{name.lower()}", tags=["{name.lower()}"])
-    async def create_{name.lower()}({name.lower()}: {name}Schema):
-        db=SessionLocal()
+    async def create_{name.lower()}({name.lower()}: {name}Schema, db: Session = Depends(get_db)):
         return {name}Controller.create_{name.lower()}(db=db, {name.lower()}={name.lower()})
 
     @router.put("/{name.lower()}/{{id}}", tags=["{name.lower()}"])
-    async def update_{name.lower()}(id: int, {name.lower()}: {name}Schema):
-        db=SessionLocal()
+    async def update_{name.lower()}(id: int, {name.lower()}: {name}Schema, db: Session = Depends(get_db)):
         return {name}Controller.update_{name.lower()}(db=db, {name.lower()}={name.lower()}, {name.lower()}_id=id)
 
     @router.delete("/{name.lower()}/{{id}}", tags=["{name.lower()}"])
-    async def delete_{name.lower()}(id: int):
-        db=SessionLocal()
+    async def delete_{name.lower()}(id: int, db: Session = Depends(get_db)):
         return {name}Controller.delete_{name.lower()}(db=db, id=id)
 
     """)
@@ -207,16 +206,31 @@ def gen_bdd(name_bdd, name_projet):
     from sqlalchemy import create_engine
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.ext.declarative import declarative_base
-    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.orm import sessionmaker, Session
+    from typing import Generator
 
     class Parametres:
-    PROJECT_NAME: str = {name_projet}
-    PROJECT_VERSION: str = "0.0.0"
-    DATABASE_URL: str = "mysql+pymysql://root@localhost:3306/{name_bdd}"
+        PROJECT_NAME: str = {name_projet}
+        PROJECT_VERSION: str = "0.0.0"
+        DATABASE_URL: str = "mysql+pymysql://root@localhost:3306/{name_bdd}"
 
     parametres = Parametres()
 
-    engine = create_engine(Parametres.DATABASE_URL)
+    engine = create_engine(
+        parametres.DATABASE_URL,
+        pool_size=5,
+        max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=120,
+        pool_pre_ping=True
+        
+    )
+    
+    SessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine
+    )
 
     try:
         with engine.connect() as connection:
@@ -225,13 +239,13 @@ def gen_bdd(name_bdd, name_projet):
         print("Erreur de connexion à la base de donnée: ", str(e))
 
 
+    
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
     Base = declarative_base()
-
-    def get_db():
-
+    
+    def get_db() -> Generator[Session, None, None]:
         db = SessionLocal()
         try:
             yield db
